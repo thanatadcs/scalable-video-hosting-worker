@@ -3,7 +3,6 @@ package com.example;
 import org.apache.commons.configuration2.EnvironmentConfiguration;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.util.KeyValue;
 
 public class TaskQueueService {
 
