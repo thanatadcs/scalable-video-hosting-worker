@@ -12,7 +12,7 @@ public class TaskQueueService {
         EnvironmentConfiguration config = new EnvironmentConfiguration();
         String redisHost;
         try {
-            redisHost = config.getString("redis.host");
+            redisHost = config.getString("REDIS_HOST");
         } catch (Exception e) {
             redisHost = "localhost";
         }
