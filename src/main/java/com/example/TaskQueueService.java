@@ -18,9 +18,10 @@ public class TaskQueueService {
         }
         jedisPool = new JedisPool(redisHost, 6379);
     }
+
     String getTask() {
         try (Jedis jedis = jedisPool.getResource()) {
-             return jedis.blpop(0, "convert-queue").get(1);
+            return jedis.blpop(0, "convert-queue").get(1);
         }
     }
 }
