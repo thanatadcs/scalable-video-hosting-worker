@@ -1,29 +1,44 @@
 package com.example;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 
 public class Main {
-    static S3Service s3Service = new S3Service();
+    final static S3Service s3Service = new S3Service();
+    final static TaskQueueService taskQueueService = new TaskQueueService();
+    final static String bucketName = "scalable-p2";
+    final static String inputFileName = "original";
+    final static String outputFileName = "convert.mp4";
 
     public static void main(String[] args) throws IOException {
         while (true) {
-            TaskQueueService taskQueueService = new TaskQueueService();
-            String fileName = taskQueueService.getTask();
-            System.out.println(fileName);
-            String downloadPath = "original";
-            s3Service.downloadFile("scalable-p2", fileName + "/original", downloadPath);
-            Process p = new ProcessBuilder("ffmpeg", "-i", downloadPath, "convert.mp4").start();
-            InputStream in = p.getErrorStream();
-            InputStreamReader inr = new InputStreamReader(in);
-            BufferedReader br = new BufferedReader(inr);
-            String line;
-            while ((line = br.readLine()) != null) {
-                System.out.println(line);
-            }
+            String fileNamePrefix = taskQueueService.getTask();
 
+            s3Service.downloadFile(bucketName, fileNamePrefix + inputFileName, inputFileName);
+
+            convertVideo(inputFileName, outputFileName);
+
+            deleteFile(inputFileName);
+            deleteFile(outputFileName);
+        }
+    }
+
+    private static void convertVideo(String inputFileName, String outputFileName) throws IOException {
+        Process p = new ProcessBuilder("ffmpeg", "-i", inputFileName, outputFileName).start();
+        InputStream in = p.getErrorStream();
+        InputStreamReader inr = new InputStreamReader(in);
+        BufferedReader br = new BufferedReader(inr);
+        String line;
+        while ((line = br.readLine()) != null) {
+            System.out.println(line);
+        }
+    }
+
+    private static void deleteFile(String fileName) {
+        File inputFile = new File(fileName);
+        if (inputFile.delete()) {
+            System.out.println("deleted" + fileName);
+        } else {
+            System.out.println("failed to delete" + fileName);
         }
     }
 }
