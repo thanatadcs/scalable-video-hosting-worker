@@ -22,6 +22,8 @@ public class Main {
 
             s3Service.putS3Object(bucketName, fileNamePrefix + "/" + outputFileName, outputFileName);
 
+            taskQueueService.sendTask(fileNamePrefix);
+
             deleteFile(inputFileName);
             deleteFile(outputFileName);
         }

@@ -24,4 +24,11 @@ public class TaskQueueService {
             return jedis.blpop(0, "convert-queue").get(1);
         }
     }
+
+    void sendTask(String message) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.lpush("thumbnail-queue", message);
+            jedis.lpush("chunk-queue", message);
+        }
+    }
 }
