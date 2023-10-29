@@ -6,6 +6,6 @@ RUN mvn clean package
 
 FROM openjdk:21
 WORKDIR /app
-COPY --from=build /app/target/convert-worker.jar .
+COPY --from=build /app/target/worker.jar .
 COPY ffmpeg /usr/bin
-CMD ["java", "-jar", "convert-worker.jar"]
+CMD ["java", "-jar", "worker.jar"]
