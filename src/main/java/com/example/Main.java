@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.configuration2.EnvironmentConfiguration;
 
 import java.io.*;
-import java.util.List;
 
 @Slf4j
 public class Main {
@@ -16,24 +15,24 @@ public class Main {
     final static String outputFileName;
     final static String inputTaskQueueName;
     final static String outputTaskQueueName;
-    final static String taskType;
+    final static String workerType;
 
     static {
         EnvironmentConfiguration config = new EnvironmentConfiguration();
         config.setThrowExceptionOnMissing(true);
-        taskType = config.getString("TASK_TYPE");
+        workerType = config.getString("WORKER_TYPE");
 
-        inputTaskQueueName = taskType;
-        if (taskType.equals("convert")) {
+        inputTaskQueueName = workerType;
+        if (workerType.equals("convert")) {
             inputFileName = "original";
             outputFileName = "convert.mp4";
             outputTaskQueueName = "thumbnail";
-        } else if (taskType.equals("thumbnail")) {
+        } else if (workerType.equals("thumbnail")) {
             inputFileName = "convert.mp4";
             outputFileName = "thumbnail.png";
             outputTaskQueueName = "backend";
         } else {
-            throw new RuntimeException("TASK_TYPE must be convert, thumbnail, or chunk.");
+            throw new RuntimeException("WORKER_TYPE must be convert, thumbnail, or chunk.");
         }
     }
 
@@ -43,9 +42,9 @@ public class Main {
 
             s3Service.downloadFile(bucketName, fileNamePrefix + "/" + inputFileName, inputFileName);
 
-            if (taskType.equals("convert")) {
+            if (workerType.equals("convert")) {
                 convertVideo(inputFileName, outputFileName);
-            } else if (taskType.equals("thumbnail")) {
+            } else if (workerType.equals("thumbnail")) {
                 createThumbnail(inputFileName, outputFileName);
             }
 
