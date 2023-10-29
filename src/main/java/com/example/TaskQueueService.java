@@ -10,25 +10,20 @@ public class TaskQueueService {
 
     TaskQueueService() {
         EnvironmentConfiguration config = new EnvironmentConfiguration();
-        String redisHost;
-        try {
-            redisHost = config.getString("REDIS_HOST");
-        } catch (Exception e) {
-            redisHost = "localhost";
-        }
+        String redisHost = config.getString("REDIS_HOST");
+        redisHost = redisHost == null ? "localhost" : redisHost;
         jedisPool = new JedisPool(redisHost, 6379);
     }
 
-    String getTask() {
+    String getTask(String queueName) {
         try (Jedis jedis = jedisPool.getResource()) {
-            return jedis.blpop(0, "convert-queue").get(1);
+            return jedis.blpop(0, queueName).get(1);
         }
     }
 
-    void sendTask(String message) {
+    void sendTask(String queueName, String message) {
         try (Jedis jedis = jedisPool.getResource()) {
-            jedis.lpush("thumbnail-queue", message);
-            jedis.lpush("chunk-queue", message);
+            jedis.lpush(queueName, message);
         }
     }
 }
