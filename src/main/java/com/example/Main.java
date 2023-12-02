@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.configuration2.EnvironmentConfiguration;
 
 import java.io.*;
+import java.util.List;
 
 @Slf4j
 public class Main {
@@ -11,6 +12,8 @@ public class Main {
     final static S3Service s3Service = new S3Service();
     final static TaskQueueService taskQueueService = new TaskQueueService();
     final static String bucketName = "scalable-p2";
+
+    final static List<String> command;
     final static String inputFileName;
     final static String outputFileName;
     final static String inputTaskQueueName;
@@ -27,10 +30,18 @@ public class Main {
             inputFileName = "original";
             outputFileName = "convert.mp4";
             outputTaskQueueName = "thumbnail";
+            command = List.of(
+                    "ffmpeg", "-r", "24", "-i", inputFileName,
+                    "-c:v", "libx264", "-g", "240", "-keyint_min", "0",
+                    "-sc_threshold", "0", outputFileName
+            );
         } else if (workerType.equals("thumbnail")) {
             inputFileName = "convert.mp4";
             outputFileName = "thumbnail.png";
             outputTaskQueueName = "backend";
+            command = List.of(
+                    "ffmpeg", "-i", inputFileName, "-frames:v", "1", outputFileName
+            );
         } else {
             throw new RuntimeException("WORKER_TYPE must be convert, thumbnail, or chunk.");
         }
@@ -42,11 +53,7 @@ public class Main {
 
             s3Service.downloadFile(bucketName, fileNamePrefix + "/" + inputFileName, inputFileName);
 
-            if (workerType.equals("convert")) {
-                convertVideo(inputFileName, outputFileName);
-            } else if (workerType.equals("thumbnail")) {
-                createThumbnail(inputFileName, outputFileName);
-            }
+            executeCommand(command);
 
             s3Service.putS3Object(bucketName, fileNamePrefix + "/" + outputFileName, outputFileName);
 
@@ -57,18 +64,9 @@ public class Main {
         }
     }
 
-    private static void convertVideo(String inputFileName, String outputFileName) {
+    private static void executeCommand(List<String> command) {
         try {
-            Process p = new ProcessBuilder("ffmpeg", "-i", inputFileName, outputFileName).start();
-            printInputStream(p.getErrorStream());
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
-
-    private static void createThumbnail(String inputFileName, String outputFileName) {
-        try {
-            Process p = new ProcessBuilder("ffmpeg", "-i", inputFileName, "-frames:v", "1", outputFileName).start();
+            Process p = new ProcessBuilder(command).start();
             printInputStream(p.getErrorStream());
         } catch (IOException e) {
             log.error(e.getMessage());
