@@ -6,25 +6,31 @@ import software.amazon.awssdk.transfer.s3.model.*;
 import software.amazon.awssdk.transfer.s3.progress.LoggingTransferListener;
 
 import java.nio.file.Paths;
+import java.util.function.BiConsumer;
 
 @Slf4j
 public class S3Service {
 
     private S3TransferManager transferManager;
+    private String bucketName;
+    private BiConsumer<String, String> uploadFunction;
+    private final String workerTypeForDirectoryUpload = "chunk";
 
-    S3Service() {
+    S3Service(String bucketName, String workerType) {
         transferManager = S3TransferManager.create();
+        this.bucketName = bucketName;
+        this.uploadFunction = workerType.equals(workerTypeForDirectoryUpload) ? this::uploadDirectory : this::uploadFile;
     }
 
     /*
      * Source: https://docs.aws.amazon.com/AmazonS3/latest/userguide/example_s3_GetObject_section.html
      */
-    public Long downloadFile(String bucketName, String key, String downloadedFileWithPath) {
+    public Long downloadFile(String keyPrefix, String fileName) {
         DownloadFileRequest downloadFileRequest =
                 DownloadFileRequest.builder()
-                        .getObjectRequest(b -> b.bucket(bucketName).key(key))
+                        .getObjectRequest(b -> b.bucket(bucketName).key(keyPrefix + "/" + fileName))
                         .addTransferListener(LoggingTransferListener.create())
-                        .destination(Paths.get(downloadedFileWithPath))
+                        .destination(Paths.get(fileName))
                         .build();
 
         FileDownload downloadFile = transferManager.downloadFile(downloadFileRequest);
@@ -33,14 +39,18 @@ public class S3Service {
         return downloadResult.response().contentLength();
     }
 
+    public void upload(String keyPrefix, String fileName) {
+        uploadFunction.accept(keyPrefix, fileName);
+    }
+
     /*
      * Source: https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/transfer/s3/S3TransferManager.html
      */
-    public void uploadFile(String bucketName, String objectKey, String objectPath) {
+    public void uploadFile(String keyPrefix, String fileName) {
         UploadFileRequest uploadFileRequest = UploadFileRequest.builder()
-                .putObjectRequest(req -> req.bucket(bucketName).key(objectKey))
+                .putObjectRequest(req -> req.bucket(bucketName).key(keyPrefix + "/" + fileName))
                 .addTransferListener(LoggingTransferListener.create())
-                .source(Paths.get(objectPath))
+                .source(Paths.get(fileName))
                 .build();
 
         FileUpload upload = transferManager.uploadFile(uploadFileRequest);
@@ -50,10 +60,10 @@ public class S3Service {
     /*
      * Source: https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/transfer/s3/S3TransferManager.html
      */
-    public Integer uploadDirectory(String bucketName, String keyPrefix,String sourceDirectory){
+    public void uploadDirectory(String keyPrefix, String sourceDirectory){
         DirectoryUpload directoryUpload =
                 transferManager.uploadDirectory(UploadDirectoryRequest.builder()
-                        .s3Prefix(keyPrefix)
+                        .s3Prefix(keyPrefix + "/" + sourceDirectory)
                         .source(Paths.get(sourceDirectory))
                         .bucket(bucketName)
                         .build());
@@ -61,8 +71,6 @@ public class S3Service {
         CompletedDirectoryUpload completedDirectoryUpload = directoryUpload.completionFuture().join();
         completedDirectoryUpload.failedTransfers().forEach(fail ->
                 log.warn("Object [{}] failed to transfer", fail.toString()));
-        return completedDirectoryUpload.failedTransfers().size();
     }
-
 
 }

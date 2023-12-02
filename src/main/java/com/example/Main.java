@@ -4,32 +4,36 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.configuration2.EnvironmentConfiguration;
 
 import java.io.*;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 @Slf4j
 public class Main {
 
-    final static S3Service s3Service = new S3Service();
     final static TaskQueueService taskQueueService = new TaskQueueService();
     final static String bucketName = "scalable-p2";
-
+    final static S3Service s3Service;
     final static List<String> command;
     final static String inputFileName;
     final static String outputFileName;
     final static String inputTaskQueueName;
-    final static String outputTaskQueueName;
+    final static String[] outputTaskQueueNames;
     final static String workerType;
+    final static Consumer<String> deleteFunction;
 
     static {
         EnvironmentConfiguration config = new EnvironmentConfiguration();
         config.setThrowExceptionOnMissing(true);
         workerType = config.getString("WORKER_TYPE");
-
+        s3Service = new S3Service(bucketName, workerType);
+        deleteFunction = workerType.equals("chunk") ? Main::cleanDirectory : Main::deleteFile;
         inputTaskQueueName = workerType;
+
         if (workerType.equals("convert")) {
             inputFileName = "original";
             outputFileName = "convert.mp4";
-            outputTaskQueueName = "thumbnail";
+            outputTaskQueueNames = new String[]{"thumbnail", "chunk"};
             command = List.of(
                     "ffmpeg", "-r", "24", "-i", inputFileName,
                     "-c:v", "libx264", "-g", "240", "-keyint_min", "0",
@@ -38,10 +42,20 @@ public class Main {
         } else if (workerType.equals("thumbnail")) {
             inputFileName = "convert.mp4";
             outputFileName = "thumbnail.png";
-            outputTaskQueueName = "backend";
+            outputTaskQueueNames = new String[]{"backend"};
             command = List.of(
                     "ffmpeg", "-i", inputFileName, "-frames:v", "1", outputFileName
             );
+        } else if (workerType.equals("chunk")) {
+            inputFileName = "convert.mp4";
+            outputFileName = "playlist";
+            outputTaskQueueNames = new String[]{"backend"};
+            command = List.of(
+                    "ffmpeg", "-i", inputFileName, "-c:v", "copy",
+                    "-start_number", "0", "-hls_time", "10", "-hls_list_size", "0",
+                    "-f", "hls", outputFileName + "/" + outputFileName + ".m3u8"
+            );
+            new File(outputFileName).mkdir();
         } else {
             throw new RuntimeException("WORKER_TYPE must be convert, thumbnail, or chunk.");
         }
@@ -52,16 +66,19 @@ public class Main {
             try {
                 String fileNamePrefix = taskQueueService.getTask(inputTaskQueueName);
 
-                s3Service.downloadFile(bucketName, fileNamePrefix + "/" + inputFileName, inputFileName);
+                s3Service.downloadFile(fileNamePrefix, inputFileName);
 
                 executeCommand(command);
 
-                s3Service.putS3Object(bucketName, fileNamePrefix + "/" + outputFileName, outputFileName);
+                s3Service.upload(fileNamePrefix, outputFileName);
 
-                taskQueueService.sendTask(outputTaskQueueName, fileNamePrefix);
+                Arrays.stream(outputTaskQueueNames).forEach(
+                        outputTaskQueueName ->
+                                taskQueueService.sendTask(outputTaskQueueName, fileNamePrefix)
+                );
 
                 deleteFile(inputFileName);
-                deleteFile(outputFileName);
+                delete(outputFileName);
             } catch (Exception e) {
                 log.error(e.getMessage());
             }
@@ -83,11 +100,26 @@ public class Main {
         }
     }
 
+    private static void delete(String fileName) {
+        deleteFunction.accept(fileName);
+    }
+
+    private static void cleanDirectory(String dirName) {
+        File dir = new File(dirName);
+        for(File file: dir.listFiles()) {
+            if (!file.isDirectory()) {
+                file.delete();
+                log.info("Deleted " + file.getName());
+            }
+        }
+    }
+
     private static void deleteFile(String fileName) {
         File inputFile = new File(fileName);
         if (inputFile.delete())
-            log.info("deleted " + fileName);
+            log.info("Deleted " + fileName);
         else
-            log.error("failed to delete " + fileName);
+            log.error("Failed to delete " + fileName);
     }
+
 }
