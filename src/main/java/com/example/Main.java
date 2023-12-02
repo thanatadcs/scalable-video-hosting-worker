@@ -49,28 +49,28 @@ public class Main {
 
     public static void main(String[] args) {
         while (true) {
-            String fileNamePrefix = taskQueueService.getTask(inputTaskQueueName);
+            try {
+                String fileNamePrefix = taskQueueService.getTask(inputTaskQueueName);
 
-            s3Service.downloadFile(bucketName, fileNamePrefix + "/" + inputFileName, inputFileName);
+                s3Service.downloadFile(bucketName, fileNamePrefix + "/" + inputFileName, inputFileName);
 
-            executeCommand(command);
+                executeCommand(command);
 
-            s3Service.putS3Object(bucketName, fileNamePrefix + "/" + outputFileName, outputFileName);
+                s3Service.putS3Object(bucketName, fileNamePrefix + "/" + outputFileName, outputFileName);
 
-            taskQueueService.sendTask(outputTaskQueueName, fileNamePrefix);
+                taskQueueService.sendTask(outputTaskQueueName, fileNamePrefix);
 
-            deleteFile(inputFileName);
-            deleteFile(outputFileName);
+                deleteFile(inputFileName);
+                deleteFile(outputFileName);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+            }
         }
     }
 
-    private static void executeCommand(List<String> command) {
-        try {
-            Process p = new ProcessBuilder(command).start();
-            printInputStream(p.getErrorStream());
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
+    private static void executeCommand(List<String> command) throws IOException {
+        Process p = new ProcessBuilder(command).start();
+        printInputStream(p.getErrorStream());
     }
 
     private static void printInputStream(InputStream in) {
@@ -79,7 +79,7 @@ public class Main {
             while ((line = br.readLine()) != null)
                 System.out.println(line);
         } catch (IOException e) {
-            log.error(e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
