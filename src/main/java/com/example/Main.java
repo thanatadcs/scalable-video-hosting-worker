@@ -21,6 +21,7 @@ public class Main {
     final static String[] outputTaskQueueNames;
     final static String workerType;
     final static Consumer<String> deleteFunction;
+    final static String messagePrefix;
 
     static {
         EnvironmentConfiguration config = new EnvironmentConfiguration();
@@ -31,6 +32,7 @@ public class Main {
         inputTaskQueueName = workerType;
 
         if (workerType.equals("convert")) {
+            messagePrefix = "";
             inputFileName = "original";
             outputFileName = "convert.mp4";
             outputTaskQueueNames = new String[]{"thumbnail", "chunk"};
@@ -40,6 +42,7 @@ public class Main {
                     "-sc_threshold", "0", outputFileName
             );
         } else if (workerType.equals("thumbnail")) {
+            messagePrefix = workerType + ",";
             inputFileName = "convert.mp4";
             outputFileName = "thumbnail.png";
             outputTaskQueueNames = new String[]{"backend"};
@@ -47,6 +50,7 @@ public class Main {
                     "ffmpeg", "-i", inputFileName, "-frames:v", "1", outputFileName
             );
         } else if (workerType.equals("chunk")) {
+            messagePrefix = workerType + ",";
             inputFileName = "convert.mp4";
             outputFileName = "playlist";
             outputTaskQueueNames = new String[]{"backend"};
@@ -74,7 +78,7 @@ public class Main {
 
                 Arrays.stream(outputTaskQueueNames).forEach(
                         outputTaskQueueName ->
-                                taskQueueService.sendTask(outputTaskQueueName, fileNamePrefix)
+                                taskQueueService.sendTask(outputTaskQueueName, messagePrefix + fileNamePrefix)
                 );
 
                 deleteFile(inputFileName);
