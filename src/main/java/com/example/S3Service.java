@@ -1,7 +1,6 @@
 package com.example;
 
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.*;
 import software.amazon.awssdk.transfer.s3.progress.LoggingTransferListener;
@@ -51,9 +50,10 @@ public class S3Service {
     /*
      * Source: https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/transfer/s3/S3TransferManager.html
      */
-    public Integer uploadDirectory(String sourceDirectory, String bucketName){
+    public Integer uploadDirectory(String bucketName, String keyPrefix,String sourceDirectory){
         DirectoryUpload directoryUpload =
                 transferManager.uploadDirectory(UploadDirectoryRequest.builder()
+                        .s3Prefix(keyPrefix)
                         .source(Paths.get(sourceDirectory))
                         .bucket(bucketName)
                         .build());
