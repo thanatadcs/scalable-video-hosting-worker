@@ -21,7 +21,6 @@ public class Main {
     final static String[] outputTaskQueueNames;
     final static String workerType;
     final static Consumer<String> deleteFunction;
-    final static String messagePrefix;
 
     static {
         EnvironmentConfiguration config = new EnvironmentConfiguration();
@@ -32,7 +31,6 @@ public class Main {
         inputTaskQueueName = workerType;
 
         if (workerType.equals("convert")) {
-            messagePrefix = "";
             inputFileName = "original";
             outputFileName = "convert.mp4";
             outputTaskQueueNames = new String[]{"thumbnail", "chunk"};
@@ -42,18 +40,16 @@ public class Main {
                     "-sc_threshold", "0", outputFileName
             );
         } else if (workerType.equals("thumbnail")) {
-            messagePrefix = workerType + ",";
             inputFileName = "convert.mp4";
             outputFileName = "thumbnail.png";
-            outputTaskQueueNames = new String[]{"backend"};
+            outputTaskQueueNames = new String[0];
             command = List.of(
                     "ffmpeg", "-i", inputFileName, "-frames:v", "1", outputFileName
             );
         } else if (workerType.equals("chunk")) {
-            messagePrefix = workerType + ",";
             inputFileName = "convert.mp4";
             outputFileName = "playlist";
-            outputTaskQueueNames = new String[]{"backend"};
+            outputTaskQueueNames = new String[0];
             command = List.of(
                     "ffmpeg", "-i", inputFileName, "-c:v", "copy",
                     "-start_number", "0", "-hls_time", "10", "-hls_list_size", "0",
@@ -78,8 +74,9 @@ public class Main {
 
                 Arrays.stream(outputTaskQueueNames).forEach(
                         outputTaskQueueName ->
-                                taskQueueService.sendTask(outputTaskQueueName, messagePrefix + fileNamePrefix)
+                                taskQueueService.sendTask(outputTaskQueueName, fileNamePrefix)
                 );
+                taskQueueService.sendTask("backend", workerType + "," + fileNamePrefix);
 
                 deleteFile(inputFileName);
                 delete(outputFileName);
