@@ -48,4 +48,21 @@ public class S3Service {
         upload.completionFuture().join();
     }
 
+    /*
+     * Source: https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/transfer/s3/S3TransferManager.html
+     */
+    public Integer uploadDirectory(String sourceDirectory, String bucketName){
+        DirectoryUpload directoryUpload =
+                transferManager.uploadDirectory(UploadDirectoryRequest.builder()
+                        .source(Paths.get(sourceDirectory))
+                        .bucket(bucketName)
+                        .build());
+
+        CompletedDirectoryUpload completedDirectoryUpload = directoryUpload.completionFuture().join();
+        completedDirectoryUpload.failedTransfers().forEach(fail ->
+                log.warn("Object [{}] failed to transfer", fail.toString()));
+        return completedDirectoryUpload.failedTransfers().size();
+    }
+
+
 }
