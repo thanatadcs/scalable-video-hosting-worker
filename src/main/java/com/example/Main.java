@@ -62,9 +62,10 @@ public class Main {
     }
 
     public static void main(String[] args) {
+        String fileNamePrefix = "";
         while (true) {
             try {
-                String fileNamePrefix = taskQueueService.getTask(inputTaskQueueName);
+                fileNamePrefix = taskQueueService.getTask(inputTaskQueueName);
 
                 s3Service.downloadFile(fileNamePrefix, inputFileName);
 
@@ -72,15 +73,15 @@ public class Main {
 
                 s3Service.upload(fileNamePrefix, outputFileName);
 
-                Arrays.stream(outputTaskQueueNames).forEach(
-                        outputTaskQueueName ->
-                                taskQueueService.sendTask(outputTaskQueueName, fileNamePrefix)
-                );
-                taskQueueService.sendTask("backend", workerType + "," + fileNamePrefix);
+                for (String outputTaskQueueName: outputTaskQueueNames)
+                    taskQueueService.sendTask(outputTaskQueueName, fileNamePrefix);
+
+                taskQueueService.sendTask("backend", workerType + "," + fileNamePrefix + ",success");
 
                 deleteFile(inputFileName);
                 delete(outputFileName);
             } catch (Exception e) {
+                taskQueueService.sendTask("backend", workerType + "," + fileNamePrefix + ",fail");
                 log.error(e.getMessage());
             }
         }
