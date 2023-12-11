@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 public class Main {
 
     final static TaskQueueService taskQueueService = new TaskQueueService();
-    final static String bucketName = "scalable-p2";
+    final static String bucketName;
     final static S3Service s3Service;
     final static List<String> command;
     final static String inputFileName;
@@ -26,6 +26,7 @@ public class Main {
         EnvironmentConfiguration config = new EnvironmentConfiguration();
         config.setThrowExceptionOnMissing(true);
         workerType = config.getString("WORKER_TYPE");
+        bucketName = config.getString("S3_BUCKET");
         s3Service = new S3Service(bucketName, workerType);
         deleteFunction = workerType.equals("chunk") ? Main::cleanDirectory : Main::deleteFile;
         inputTaskQueueName = workerType;
